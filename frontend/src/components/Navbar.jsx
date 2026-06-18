@@ -3,6 +3,7 @@ import { navbarStyles } from "../assets/dummyStyles";
 import logo from "../assets/logo.png";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth, useClerk, useUser, SignedOut } from "@clerk/clerk-react";
+import { useEffect } from "react";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
@@ -17,30 +18,85 @@ const Navbar = () => {
   const TOKEN_KEY = "TOKEN";
 
   // for token generation
-  const fetchAndStoreToken = useCallback(async ()=>{
+  const fetchAndStoreToken = useCallback(async () => {
     try {
-        if(!getToken){
-            return null;
-        }
-        const token = await getToken().catch(()=> null);
-        if(token){
-            try{
-                localStorage.setItem(TOKEN_KEY, token);
-                console.log(token);
-            }catch(err){
-                // ignore all errors
-            }
-            return token;
-        }else{
-            return null;
-        }
-    }catch(err){
+      if (!getToken) {
         return null;
+      }
+      const token = await getToken().catch(() => null);
+      if (token) {
+        try {
+          localStorage.setItem(TOKEN_KEY, token);
+          console.log(token);
+        } catch{
+          // ignore all errors
+        }
+        return token;
+      } else {
+        return null;
+      }
+    } catch{
+      return null;
     }
   }, [getToken]);
 
   // get the localstorage in sync with clerk
+  useEffect(() => {
+    let mounted = true;
 
+    (async () => {
+      if (isSignedIn) {
+        const t = await fetchAndStoreToken({ template: "default" }).catch(
+          () => null,
+        );
+        if (!t && mounted) {
+          await fetchAndStoreToken({ forceRefresh: true }).catch(() => null);
+        }
+      } else {
+        try {
+          localStorage.removeItem(TOKEN_KEY);
+        } catch {
+          //
+        }
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [isSignedIn, user, fetchAndStoreToken]);
+
+  // after successful login redirect to dashboard
+  useEffect(() =>{
+    if(isSignedIn){
+      const pathname = window.location.pathname || "/";
+      if(
+        pathname === '/login' ||
+        pathname === '/signup' ||
+        pathname.startsWith('/auth') ||
+        pathname === '/'
+      ){
+        navigate('/app/dashboard', {replace : true});
+      }
+    }
+  });
+
+  // Close profile popover on outside click
+useEffect(() => {
+  function onDocClick(e) {
+    if (!profileRef.current) return;
+    if (!profileRef.current.contains(e.target)) {
+      setProfileOpen(false);
+    }
+  }
+  if (profileOpen) {
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("touchstart", onDocClick);
+  }
+  return () => {
+    document.removeEventListener("mousedown", onDocClick);
+    document.removeEventListener("touchstart", onDocClick);
+  };
+}, [profileOpen]);
 
   // to open signIn model
   function openSignIn() {
@@ -148,25 +204,33 @@ const Navbar = () => {
           </div>
         </nav>
       </div>
-      <div className={`${open ? "block" : "hidden" } ${navbarStyles.mobileMenu}`}>
+      <div
+        className={`${open ? "block" : "hidden"} ${navbarStyles.mobileMenu}`}
+      >
         <div className={navbarStyles.mobileMenuContainer}>
-            <a href="#features" className={navbarStyles.mobileNavLink}>
-                Features
-            </a>
-            <a href="#pricing" className={navbarStyles.mobileNavLink}>
-                Pricing
-            </a>
+          <a href="#features" className={navbarStyles.mobileNavLink}>
+            Features
+          </a>
+          <a href="#pricing" className={navbarStyles.mobileNavLink}>
+            Pricing
+          </a>
 
-            <div className={navbarStyles.mobileAuthSection}>
-                <SignedOut>
-                    <button onClick={openSignIn} className={navbarStyles.mobileSignIn}>
-                        Sign in
-                    </button>
-                    <button onClick={openSignUp} className={navbarStyles.mobileSignUp}>
-                        Get Started
-                    </button>
-                </SignedOut>
-            </div>
+          <div className={navbarStyles.mobileAuthSection}>
+            <SignedOut>
+              <button
+                onClick={openSignIn}
+                className={navbarStyles.mobileSignIn}
+              >
+                Sign in
+              </button>
+              <button
+                onClick={openSignUp}
+                className={navbarStyles.mobileSignUp}
+              >
+                Get Started
+              </button>
+            </SignedOut>
+          </div>
         </div>
       </div>
     </header>
