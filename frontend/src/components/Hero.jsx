@@ -218,7 +218,7 @@ const Hero = () => {
                             Preview
                         </span>
                     </button>
-                    <button classNmae={heroStyles.sendButton}>
+                    <button className={heroStyles.sendButton}>
                         <span className={heroStyles.sendButtonText}>
                             Send Invoice
                         </span>
