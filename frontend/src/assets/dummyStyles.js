@@ -278,14 +278,14 @@ export const createInvoiceCustomStyles = {
 export const appShellStyles = {
   // Layout
   root: "min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20",
-  layout: "lg:flex",
+  layout: "lg:flex  min-h-screen",
   
   // Desktop Sidebar
-  sidebar: "hidden lg:block bg-white/80 backdrop-blur-xl border-r border-gray-200/60 transition-all duration-500 ease-in-out relative",
-  sidebarCollapsed: "w-20",
+  sidebar: "hidden lg:flex flex-col h-screen bg-white/80 backdrop-blur-xl border-r border-gray-200/60 relative",
+  sidebarCollapsed: "w-20 ",
   sidebarExpanded: "w-80",
   sidebarGradient: "absolute inset-0 bg-gradient-to-b from-blue-50/5 to-transparent pointer-events-none",
-  sidebarContainer: "px-6 py-8 h-full flex flex-col justify-between relative z-10",
+  sidebarContainer: "px-6 py-8 flex flex-col h-full relative z-10",
   
   // Logo Area
   logoContainer: "mb-12 flex items-center",
@@ -522,7 +522,7 @@ export const invoicesStyles = {
   tableHead: "bg-gray-50/80 border-b border-gray-200/60",
   tableHeaderCell: "cursor-pointer px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider hover:bg-gray-100/50 transition-colors duration-150",
   tableHeaderCellRight: "px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider",
-  tableHeaderContent: "flex items-center gap-2",
+  tableHeaderCellContent: "flex items-center gap-2",
   tableBody: "divide-y divide-gray-200/60",
   tableRow: "hover:bg-gray-50/50 transition-colors duration-150 group",
   

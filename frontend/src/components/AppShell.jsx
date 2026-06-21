@@ -129,7 +129,7 @@ const SidebarLink = ({ to, icon, children, collapsed, setMobileOpen }) => (
 );
 
 const AppShell = () => {
-  const navigat = useNavigate();
+  const navigate = useNavigate();
   const { signOut } = useClerk();
   const { user } = useUser();
 
@@ -185,7 +185,7 @@ const AppShell = () => {
     } catch (error) {
       console.warn("signout error: ", error);
     }
-    navigat("/login");
+    navigate("/login");
   };
 
   // toggle Sidebar
@@ -501,7 +501,7 @@ const AppShell = () => {
             </div>
             <div className={appShellStyles.headerActions}>
               <button
-                ocClick={() => navigat("/app/create-invoice")}
+                onClick={() => navigate("/app/create-invoice")}
                 className={appShellStyles.ctaButton}
               >
                 <CreateIcon className={appShellStyles.ctaIcon} />
