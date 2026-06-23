@@ -454,7 +454,11 @@ const AppShell = () => {
         )}
 
         {/* MAIN CONTENT */}
-        <div className="flex-1 min-w-0">
+        <div
+          className={`min-w-0 transition-[margin] duration-300 ${
+            collapsed ? "lg:ml-20" : "lg:ml-80"
+          }`}
+        >
           <header
             className={`${appShellStyles.header} ${
               scrolled

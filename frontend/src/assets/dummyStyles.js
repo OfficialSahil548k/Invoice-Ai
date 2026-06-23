@@ -278,14 +278,14 @@ export const createInvoiceCustomStyles = {
 export const appShellStyles = {
   // Layout
   root: "min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/20",
-  layout: "lg:flex  min-h-screen",
+  layout: "min-h-screen",
   
   // Desktop Sidebar
-  sidebar: "hidden lg:flex flex-col h-screen bg-white/80 backdrop-blur-xl border-r border-gray-200/60 relative",
+  sidebar: "hidden lg:flex fixed inset-y-0 left-0 z-50 flex-col h-dvh bg-white/80 backdrop-blur-xl border-r border-gray-200/60",
   sidebarCollapsed: "w-20 ",
   sidebarExpanded: "w-80",
   sidebarGradient: "absolute inset-0 bg-gradient-to-b from-blue-50/5 to-transparent pointer-events-none",
-  sidebarContainer: "px-6 py-8 flex flex-col h-full relative z-10",
+  sidebarContainer: "px-6 py-8 flex-1 min-h-0 overflow-y-auto flex flex-col relative z-10",
   
   // Logo Area
   logoContainer: "mb-12 flex items-center",
@@ -310,7 +310,7 @@ export const appShellStyles = {
   sidebarActiveIndicator: "w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse",
   
   // User Area
-  userSection: "mt-auto",
+  userSection: "shrink-0 px-6 pb-6 bg-white/80 backdrop-blur-xl relative z-10",
   userDivider: "border-t border-gray-200/60 pt-6",
   userDividerCollapsed: "px-1",
   userDividerExpanded: "px-2",

@@ -168,7 +168,7 @@ const Dashboard = () => {
       const headers = { Accept: "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const res = await fetch(`${API_BASE}/api/invoices`, {
+      const res = await fetch(`${API_BASE}/api/invoice`, {
         method: "GET",
         headers,
       });
@@ -423,7 +423,7 @@ const Dashboard = () => {
                 <span className={dashboardStyles.quickStatsValue}>
                   {currencyFmt(
                     kpis.totalInvoices > 0
-                      ? (kpis.totalpaid + kpis.totalUnpaid) / kpis.totalInvoices
+                      ? (kpis.totalPaid + kpis.totalUnpaid) / kpis.totalInvoices
                       : 0,
                     "INR",
                   )}
