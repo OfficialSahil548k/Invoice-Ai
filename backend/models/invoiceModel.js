@@ -9,12 +9,12 @@ const ItemSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    quantity :{
+    qty :{
         type: Number,
         required: true,
         default: 1
     },
-    price :{
+    unitPrice :{
         type: Number,
         required: true,
         default: 0
@@ -34,6 +34,15 @@ const invoiceSchema = new mongoose.Schema({
         type : String,
         required : true,
         index : true
+    },
+
+    issueDate: {
+        type: String,
+        default: ""
+    },
+    dueDate: {
+        type: String,
+        default: ""
     },
     
     //Business info
@@ -65,6 +74,7 @@ const invoiceSchema = new mongoose.Schema({
     signatureTitle: { type: String, default: "" },
 
     taxPercent: { type: Number, default: 18 },
+    notes: { type: String, default: "" },
 
     subtotal: { type: Number, default: 0 },
     tax: { type: Number, default: 0 },

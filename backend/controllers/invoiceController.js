@@ -8,12 +8,28 @@ const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:4000';
 function computeTotals(items = [], taxPercent = 0) {
     const safe = Array.isArray(items) ? items : [];
     const subtotal = safe.reduce(
-        (acc, item) => acc + (item.price || 0) * (item.quantity || 0),
+        (acc, item) => {
+            const quantity = Number(item?.qty ?? item?.quantity ?? 0);
+            const unitPrice = Number(item?.unitPrice ?? item?.price ?? 0);
+            return acc + quantity * unitPrice;
+        },
+        0
     );
-    const tax = (subtotal * (taxPercent || 0)) / 100;
+    const tax = (subtotal * Number(taxPercent || 0)) / 100;
     const total = subtotal + tax;
     return { subtotal, tax, total };
 }// compute total subtotal, tax and total from items and taxPercent
+
+function normalizeItems(items = []) {
+    if (!Array.isArray(items)) return [];
+
+    return items.map((item) => ({
+        id: String(item?.id || new mongoose.Types.ObjectId()),
+        description: String(item?.description || ""),
+        qty: Number(item?.qty ?? item?.quantity ?? 0),
+        unitPrice: Number(item?.unitPrice ?? item?.price ?? 0),
+    }));
+}
 
 function parseItemsField(val) {
     if (!val) return [];
@@ -82,9 +98,10 @@ export async function createInvoice(req, res) {
         }
 
         const body = req.body || {};
-        const items = Array.isArray(body.items)
+        const parsedItems = Array.isArray(body.items)
             ? body.items
             : parseItemsField(body.items);
+        const items = normalizeItems(parsedItems);
         const taxPercent = Number(
             body.taxPercent ?? body.tax ?? body.defaultTaxPercent ?? 0
         );
@@ -203,7 +220,7 @@ export async function getInvoices(req, res) {
         if (!userId) {
             return res.status(401)
                 .json({
-                    success: failed,
+                    success: false,
                     message: 'Authentication required'
                 })
         }
@@ -246,7 +263,7 @@ export async function getInvoiceById(req, res) {
         if (!userId) {
             return res.status(401)
                 .json({
-                    success: failed,
+                    success: false,
                     message: 'Authentication required'
                 })
         }
@@ -290,7 +307,7 @@ export async function updateInvoice(req, res) {
         if (!userId) {
             return res.status(401)
                 .json({
-                    success: failed,
+                    success: false,
                     message: 'Authentication required'
                 })
         }
@@ -318,15 +335,16 @@ export async function updateInvoice(req, res) {
             }
         }
 
-        let items = [];
-        if (Array.isArray(body.items)) items = body.items;
+        let parsedItems = [];
+        if (Array.isArray(body.items)) parsedItems = body.items;
         else if (typeof body.items === "string" && body.items.length) {
             try {
-                items = JSON.parse(body.items);
+                parsedItems = JSON.parse(body.items);
             } catch {
-                items = [];
+                parsedItems = [];
             }
         }
+        const items = normalizeItems(parsedItems);
 
         const taxPercent = Number(
             body.taxPercent ?? body.tax ?? body.defaultTaxPercent ?? existing.taxPercent ?? 0
@@ -413,7 +431,7 @@ export async function deleteInvoice(req, res){
         if (!userId) {
             return res.status(401)
                 .json({
-                    success: failed,
+                    success: false,
                     message: 'Authentication required'
                 })
         }
