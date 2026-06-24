@@ -1,5 +1,3 @@
-import React from "react";
-
 const StatusIcons = {
   paid: ({ className = "w-3 h-3" }) => (
     <svg

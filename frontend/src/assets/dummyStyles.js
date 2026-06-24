@@ -442,6 +442,7 @@ export const dashboardStyles = {
   
   // Action Button
   actionButton: "inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200 group/btn",
+  deleteActionButton: "inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all duration-200 group/btn",
   
   // Empty State
   emptyState: "px-6 py-12 text-center",

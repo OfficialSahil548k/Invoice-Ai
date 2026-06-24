@@ -1,10 +1,15 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import StatusBadge from "../components/StatusBadge";
 import AiInvoiceModal from "../components/AiInvoiceModal";
 import GeminiIcon from "../components/GeminiIcon";
 import { useNavigate } from "react-router-dom";
 import { invoicesStyles } from "../assets/dummyStyles";
 import { useAuth } from "@clerk/clerk-react";
+import {
+  INVOICE_LIST_CACHE_EVENT,
+  readInvoiceListCache,
+  writeInvoiceListCache,
+} from "../utils/invoiceListCache.js";
 
 const API_BASE = "http://localhost:4000";
 
@@ -231,21 +236,10 @@ function Pagination({ page, totalPages, onChange }) {
   );
 }
 
-/* uid helper */
-function uid() {
-  try {
-    if (typeof crypto !== "undefined" && crypto.randomUUID)
-      return crypto.randomUUID();
-  } catch {
-    // ignore error
-  }
-  return Math.random().toString(36).slice(2, 9);
-}
-
 /* ---------- Component ---------- */
 export default function InvoicesPage() {
   const navigate = useNavigate();
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
 
   // helper to obtain token (with a forceRefresh retry)
   const obtainToken = useCallback(async () => {
@@ -261,7 +255,12 @@ export default function InvoicesPage() {
     }
   }, [getToken]);
 
-  const [allInvoices, setAllInvoices] = useState([]);
+  const initialInvoiceCache = readInvoiceListCache(userId);
+  const [allInvoices, setAllInvoices] = useState(() =>
+    initialInvoiceCache
+      ? initialInvoiceCache.invoices.map(normalizeInvoiceFromServer)
+      : []
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -278,11 +277,22 @@ export default function InvoicesPage() {
 
   // AI modal
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
+  const [, setAiLoading] = useState(false);
 
   // fetch invoices from backend (auth-aware)
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
+  const fetchInvoices = useCallback(async (options = {}) => {
+    const force = options?.force === true;
+    if (!force) {
+      const cached = readInvoiceListCache(userId);
+      if (cached) {
+        setAllInvoices(cached.invoices.map(normalizeInvoiceFromServer));
+        setError(null);
+        setLoading(false);
+        if (cached.isFresh) return;
+      }
+    }
+
+    setLoading((current) => current || !allInvoices.length);
     setError(null);
     try {
       const token = await obtainToken();
@@ -305,6 +315,7 @@ export default function InvoicesPage() {
       }
       const json = await res.json().catch(() => null);
       const raw = Array.isArray(json?.data) ? json.data : json || [];
+      writeInvoiceListCache(userId, raw);
       const mapped = raw.map(normalizeInvoiceFromServer);
       setAllInvoices(mapped);
     } catch (err) {
@@ -314,11 +325,20 @@ export default function InvoicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [obtainToken]);
+  }, [allInvoices.length, obtainToken, userId]);
 
   useEffect(() => {
     // load invoices on mount and whenever auth state changes
-    fetchInvoices();
+    void Promise.resolve().then(fetchInvoices);
+
+    function onInvoiceCacheChanged() {
+      void fetchInvoices();
+    }
+
+    window.addEventListener(INVOICE_LIST_CACHE_EVENT, onInvoiceCacheChanged);
+    return () => {
+      window.removeEventListener(INVOICE_LIST_CACHE_EVENT, onInvoiceCacheChanged);
+    };
   }, [fetchInvoices, isSignedIn]);
 
   // client-side filtering/sorting (same logic)
@@ -396,7 +416,9 @@ export default function InvoicesPage() {
   const pageData = filtered.slice(startIndex, startIndex + perPage);
 
   useEffect(() => {
-    if (page > totalPages) setPage(1);
+    if (page > totalPages) {
+      queueMicrotask(() => setPage(1));
+    }
   }, [page, totalPages]);
 
   function handleSort(key) {
@@ -439,7 +461,7 @@ export default function InvoicesPage() {
         const json = await res.json().catch(() => null);
         throw new Error(json?.message || `Delete failed (${res.status})`);
       }
-      await fetchInvoices();
+      await fetchInvoices({ force: true });
       alert("Invoice deleted.");
     } catch (err) {
       console.error("deleteInvoice error:", err);
@@ -541,7 +563,7 @@ export default function InvoicesPage() {
           const saved = normalizeInvoiceFromServer(
             createJson?.data || createJson
           );
-          await fetchInvoices();
+          await fetchInvoices({ force: true });
           setAiOpen(false);
           navigate(`/app/invoices/${saved.id}/edit`, {
             state: { invoice: saved },
@@ -652,7 +674,7 @@ export default function InvoicesPage() {
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 type="button"
-                onClick={() => fetchInvoices()}
+                onClick={() => fetchInvoices({ force: true })}
                 style={{
                   padding: "6px 10px",
                   background: "#efefef",
@@ -859,7 +881,7 @@ export default function InvoicesPage() {
             </button>
             <button
               type="button"
-              onClick={() => fetchInvoices()}
+              onClick={() => fetchInvoices({ force: true })}
               className={invoicesStyles.resetButton}
             >
               Refresh

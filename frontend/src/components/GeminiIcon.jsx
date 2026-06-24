@@ -1,4 +1,4 @@
-import React, { useId } from "react";
+import { useId } from "react";
 
 export default function GeminiIcon({ className = "", ...props }) {
   const id = useId();

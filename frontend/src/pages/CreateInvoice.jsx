@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import StatusBadge from "../components/StatusBadge";
@@ -7,6 +7,7 @@ import {
   createInvoiceIconColors,
   createInvoiceCustomStyles,
 } from "../assets/dummyStyles";
+import { clearInvoiceListCache } from "../utils/invoiceListCache.js";
 
 /* ---------- API BASE ---------- */
 const API_BASE = "http://localhost:4000";
@@ -102,27 +103,6 @@ function computeTotals(items = [], taxPercent = 0) {
   return { subtotal, tax, total };
 }
 
-/* ---------- helper: convert dataURL to File ---------- */
-function dataURLtoFile(dataurl, filename = "file") {
-  if (!dataurl || dataurl.indexOf(",") === -1) return null;
-  const arr = dataurl.split(",");
-  const mimeMatch = arr[0].match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : "application/octet-stream";
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) {
-    u8arr[n] = bstr.charCodeAt(n);
-  }
-  try {
-    return new File([u8arr], filename, { type: mime });
-  } catch {
-    const blob = new Blob([u8arr], { type: mime });
-    blob.name = filename;
-    return blob;
-  }
-}
-
 /* ---------- icons ---------- (kept same as before) */
 const PreviewIcon = ({ className = "w-4 h-4" }) => (
   <svg
@@ -195,7 +175,7 @@ export default function CreateInvoice() {
   const isEditing = Boolean(id && id !== "new");
 
   // Clerk auth hooks
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
 
   // helper to obtain token with a retry
   const obtainToken = useCallback(async () => {
@@ -247,7 +227,7 @@ export default function CreateInvoice() {
   const [loading, setLoading] = useState(false);
 
   // profile fetched from server
-  const [profile, setProfile] = useState(null);
+  const [, setProfile] = useState(null);
 
   /* ---------- helpers for invoice editing ---------- */
   function updateInvoiceField(field, value) {
@@ -643,7 +623,6 @@ export default function CreateInvoice() {
     return () => {
       mounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     id,
     invoiceFromState,
@@ -759,6 +738,7 @@ export default function CreateInvoice() {
         all.unshift(merged);
       }
       saveStoredInvoices(all);
+      clearInvoiceListCache(userId);
 
       alert(`Invoice ${isEditing ? "updated" : "created"} successfully.`);
       navigate("/app/invoices");

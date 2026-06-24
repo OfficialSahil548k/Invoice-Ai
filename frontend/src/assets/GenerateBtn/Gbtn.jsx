@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import "./Gbtn.css";
 
 export default function AnimatedButton({

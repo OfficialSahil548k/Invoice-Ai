@@ -9,9 +9,11 @@ const AiInvoiceModal = ({ open, onClose, onGenerate, initialText = "" }) => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setText(initialText || "");
-    setError("");
-    setLoading(false);
+    queueMicrotask(() => {
+      setText(initialText || "");
+      setError("");
+      setLoading(false);
+    });
   }, [open, initialText]);
 
   if (!open) return null;

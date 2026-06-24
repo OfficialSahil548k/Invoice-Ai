@@ -7,6 +7,7 @@ import CreateInvoice from "./pages/CreateInvoice.jsx";
 import Invoices from "./pages/Invoices.jsx";
 import InvoicePreview from "./components/InvoicePreview.jsx";
 import BusinessProfile from "./pages/BusinessProfile.jsx";
+import NotFound from "./pages/NotFound.jsx";
 
 const ClerkProtected = ({ children }) => (
   <>
@@ -37,11 +38,13 @@ const App = () => {
           <Route path="invoices/new" element={<CreateInvoice />} />
           <Route path="invoices/:id" element={<InvoicePreview />} />
           <Route path="invoices/:id/preview" element={<InvoicePreview />} />
-          <Route path="invoices/:id/edit" element={<InvoicePreview />} />
+          <Route path="invoices/:id/edit" element={<CreateInvoice />} />
 
           <Route path="create-invoice" element={<CreateInvoice />} />
           <Route path="business" element={<BusinessProfile />} />
         </Route>
+
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
   );

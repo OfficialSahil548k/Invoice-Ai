@@ -67,20 +67,20 @@ function uploadedFilesToUrls(req) {
         if (Array.isArray(arr) && arr[0]) {
             const filename =
                 arr[0].filename || (arr[0].path && path.basename(arr[0].path));
-            if (filename) urls[mapping[field]] = `${API_BASE}/uploads/${filename}`;
+            if (filename) urls[mapping[field]] = `${API_BASE_URL}/uploads/${filename}`;
         }
     });
     return urls;
 }
 
 // to generate unique invoice number to avoid collision in the DB for invoice number 
-async function generateUniqueInvoiceNumber(attempts = 8) {
+async function generateUniqueInvoiceNumber(userId, attempts = 8) {
     for (let i = 0; i < attempts; i++) {
         const ts = Date.now().toString();
         const suffix = Math.floor(Math.random() * 900000).toString().padStart(6, "0");
         const candidate = `INV-${ts.slice(-6)}-${suffix}`;
 
-        const exists = await Invoice.exists({ invoiceNumber: candidate });
+        const exists = await Invoice.exists({ owner: userId, invoiceNumber: candidate });
         if (!exists) return candidate;
         await new Promise((r) => setTimeout(r, 2));
     }
@@ -115,7 +115,7 @@ export async function createInvoice(req, res) {
                 : null;
 
         if (invoiceNumberProvided) {
-            const duplicate = await Invoice.exists({ invoiceNumber: invoiceNumberProvided });
+            const duplicate = await Invoice.exists({ owner: userId, invoiceNumber: invoiceNumberProvided });
             if (duplicate) {
                 return res
                     .status(409)
@@ -124,7 +124,7 @@ export async function createInvoice(req, res) {
         }
 
         // generate a unique invoice number (or use provided)
-        let invoiceNumber = invoiceNumberProvided || (await generateUniqueInvoiceNumber());
+        let invoiceNumber = invoiceNumberProvided || (await generateUniqueInvoiceNumber(userId));
 
         // Build document
         const doc = new Invoice({
@@ -176,7 +176,7 @@ export async function createInvoice(req, res) {
                 if (err && err.code === 11000 && err.keyPattern && err.keyPattern.invoiceNumber) {
                     attempts += 1;
                     // generate a new invoiceNumber and set on doc
-                    const newNumber = await generateUniqueInvoiceNumber();
+                    const newNumber = await generateUniqueInvoiceNumber(userId);
                     doc.invoiceNumber = newNumber;
                     // loop to try save again
                     continue;
@@ -260,6 +260,7 @@ export async function getInvoices(req, res) {
 
 export async function getInvoiceById(req, res) {
     try {
+        const { userId } = getAuth(req) || {};
         if (!userId) {
             return res.status(401)
                 .json({
@@ -327,7 +328,10 @@ export async function updateInvoice(req, res) {
         // if user has updated the invoiceNumber
         // ensure that it not exist allready in the DB
         if (body.invoiceNumber && String(body.invoiceNumber).trim() !== existing.invoiceNumber) {
-            const conflict = await Invoice.findOne({ invoiceNumber: String(body.invoiceNumber).trim() });
+            const conflict = await Invoice.findOne({
+                owner: userId,
+                invoiceNumber: String(body.invoiceNumber).trim()
+            });
             if (conflict && String(conflict._id) !== String(existing._id)) {
                 return res
                     .status(409)

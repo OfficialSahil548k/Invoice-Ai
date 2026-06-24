@@ -116,8 +116,8 @@ aiInvoiceRouter.post('/generate', async (req, res) => {
             })
         }
         const { prompt } = req.body;
-        if (!prompt || !promt.trim()) {
-            res.status(400).json({
+        if (!prompt || !prompt.trim()) {
+            return res.status(400).json({
                 success: false,
                 message: "Prompt is required"
             })
@@ -181,22 +181,22 @@ aiInvoiceRouter.post('/generate', async (req, res) => {
             return res.status(502).json({
                 success: false,
                 message: "Ai response invalid JSON",
-                model: userModel,
+                model: usedModel,
                 raw: text
             });
         }
         return res.status(200).json({
             success: true,
-            model: userModel,
+            model: usedModel,
             data
         });
 
     } catch (error) {
-        console.log("AI invoice generation error: ", err);
+        console.log("AI invoice generation error: ", error);
         return res.status(500).json({
             success: false,
             message: "Ai generation failed",
-            detail: err?.message || String(err)
+            detail: error?.message || String(error)
         });
     }
 })

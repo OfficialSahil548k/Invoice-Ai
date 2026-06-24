@@ -1,4 +1,3 @@
-import React from "react";
 import { kpiCardStyles } from "../assets/dummyStyles";
 
 // icons

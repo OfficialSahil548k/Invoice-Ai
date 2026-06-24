@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { invoicePreviewStyles } from "../assets/dummyStyles";
@@ -27,7 +27,7 @@ function resolveImageUrl(url) {
         resolved,
       });
       return resolved;
-    } catch (e) {
+    } catch {
       // fallback: strip host prefix
       const path = s.replace(/^https?:\/\/[^/]+/, "");
       const resolved = `${API_BASE.replace(/\/+$/, "")}${path}`;
@@ -63,7 +63,9 @@ function readJSON(key, fallback = null) {
 function writeJSON(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
-  } catch {}
+  } catch {
+    // localStorage may be unavailable in private browsing or locked-down contexts.
+  }
 }
 function getStoredInvoices() {
   return readJSON("invoices_v1", []) || [];
@@ -172,9 +174,7 @@ export default function InvoicePreview() {
   const loc = useLocation();
   const navigate = useNavigate();
 
-  const { getToken, isSignedIn } = useAuth
-    ? useAuth()
-    : { getToken: null, isSignedIn: false };
+  const { getToken } = useAuth();
 
   const invoiceFromState = loc?.state?.invoice ?? null;
   const [invoice, setInvoice] = useState(() =>
@@ -209,6 +209,7 @@ export default function InvoicePreview() {
     let mounted = true;
     async function fetchInvoice() {
       if (!id || invoiceFromState) return;
+      let fetchedFromServer = false;
       setLoadingInvoice(true);
       setInvoiceError(null);
       try {
@@ -236,7 +237,7 @@ export default function InvoicePreview() {
               currency: data.currency || "INR",
             };
             setInvoice(normalized);
-            return;
+            fetchedFromServer = true;
           }
         } else {
           console.warn("Failed to fetch invoice from server:", res.status);
@@ -244,14 +245,17 @@ export default function InvoicePreview() {
       } catch (err) {
         console.warn("Error fetching invoice:", err);
       } finally {
-        if (!mounted) return;
-        const all = getStoredInvoices();
-        const found = all.find(
-          (x) => x && (x.id === id || x._id === id || x.invoiceNumber === id)
-        );
-        if (found) setInvoice(found);
-        else setInvoiceError("Invoice not found");
-        setLoadingInvoice(false);
+        if (mounted && fetchedFromServer) {
+          setLoadingInvoice(false);
+        } else if (mounted) {
+          const all = getStoredInvoices();
+          const found = all.find(
+            (x) => x && (x.id === id || x._id === id || x.invoiceNumber === id)
+          );
+          if (found) setInvoice(found);
+          else setInvoiceError("Invoice not found");
+          setLoadingInvoice(false);
+        }
       }
     }
     fetchInvoice();
@@ -309,7 +313,9 @@ export default function InvoicePreview() {
           setProfile(normalized);
           try {
             writeJSON("business_profile", normalized);
-          } catch {}
+          } catch {
+            // Ignore local cache failures.
+          }
         }
       } catch (err) {
         console.warn("Error fetching profile:", err);
@@ -339,7 +345,9 @@ export default function InvoicePreview() {
     return () => {
       try {
         document.title = prev;
-      } catch {}
+      } catch {
+        // Ignore document title restore failures.
+      }
     };
   }, [invoice]);
 
@@ -388,8 +396,8 @@ export default function InvoicePreview() {
               Invoice Not Found
             </h3>
             <p className={invoicePreviewStyles.emptyStateMessage}>
-              The invoice you're looking for doesn't exist or may have been
-              deleted.
+              {invoiceError ||
+                "The invoice you're looking for doesn't exist or may have been deleted."}
             </p>
             <div className="mt-6">
               <button

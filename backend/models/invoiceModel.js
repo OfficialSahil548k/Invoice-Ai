@@ -32,8 +32,7 @@ const invoiceSchema = new mongoose.Schema({
     // unique id for each invoice
     invoiceNumber : {
         type : String,
-        required : true,
-        index : true
+        required : true
     },
 
     issueDate: {
@@ -82,6 +81,8 @@ const invoiceSchema = new mongoose.Schema({
 },{
     timestamps : true
 });
+
+invoiceSchema.index({ owner: 1, invoiceNumber: 1 }, { unique: true });
 
 const Invoice = mongoose.models.Invoice || mongoose.model('Invoice', invoiceSchema);
 export default Invoice;

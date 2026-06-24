@@ -4,6 +4,7 @@ const buisinessProfileSchema = new mongoose.Schema({
     owner: {
         type: String,
         required: true,
+        unique: true,
         index: true
     },
     businessName: {
@@ -66,6 +67,11 @@ const buisinessProfileSchema = new mongoose.Schema({
         type : Number,
         required : false,
         default : 18
+    },
+    notes: {
+        type: String,
+        required: false,
+        default: ""
     }
 },{
     timestamps: true

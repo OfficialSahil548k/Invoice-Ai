@@ -1,4 +1,3 @@
-import React from 'react'
 import { footerStyles } from '../assets/dummyStyles.js'
 
 

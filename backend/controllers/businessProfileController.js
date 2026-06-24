@@ -12,9 +12,9 @@ function uploadedFilesToUrls(req) {
     const stampArr = req.files.stampName || req.files.stamp || [];
     const sigArr = req.files.signatureNameMeta || req.files.signature || [];
 
-    if (logoArr[0]) urls.logoUrl = `${API_BASE}/uploads/${logoArr[0].filename}`;
-    if (stampArr[0]) urls.stampUrl = `${API_BASE}/uploads/${stampArr[0].filename}`;
-    if (sigArr[0]) urls.signatureUrl = `${API_BASE}/uploads/${sigArr[0].filename}`;
+    if (logoArr[0]) urls.logoUrl = `${API_BASE_URL}/uploads/${logoArr[0].filename}`;
+    if (stampArr[0]) urls.stampUrl = `${API_BASE_URL}/uploads/${stampArr[0].filename}`;
+    if (sigArr[0]) urls.signatureUrl = `${API_BASE_URL}/uploads/${sigArr[0].filename}`;
 
     return urls;
 }
@@ -31,7 +31,7 @@ export async function createBusinessProfile(req, res) {
         const body = req.body || {};
         const fileUrls = uploadedFilesToUrls(req);
 
-        const profile = new BusinessProfile({
+        const profileData = {
             owner: userId,
             businessName: body.businessName || "ABC Solutions",
             email: body.email || "",
@@ -45,12 +45,26 @@ export async function createBusinessProfile(req, res) {
             signatureOwnerTitle: body.signatureOwnerTitle || "",
             defaultTaxPercent:
                 body.defaultTaxPercent !== undefined ? Number(body.defaultTaxPercent) : 18,
-        });
+            notes: body.notes || "",
+        };
 
-        const savedProfile = await profile.save();
-        return res.status(201).json({
+        const existingProfile = await BusinessProfile.findOne({ owner: userId });
+        const savedProfile = await BusinessProfile.findOneAndUpdate(
+            { owner: userId },
+            { $set: profileData },
+            {
+                new: true,
+                upsert: true,
+                setDefaultsOnInsert: true,
+                runValidators: true,
+            }
+        );
+
+        return res.status(existingProfile ? 200 : 201).json({
             success: true,
-            message: "Business profile created successfully",
+            message: existingProfile
+                ? "Business profile updated successfully"
+                : "Business profile created successfully",
             data: savedProfile
         });
 
@@ -77,16 +91,18 @@ export async function updateBusinessProfile(req, res) {
         const body = req.body || {};
         const fileUrls = uploadedFilesToUrls(req);
 
-        const exsiting = await BusinessProfile.findById(id);
-        if (!exsiting) {
+        const existing = await BusinessProfile.findById(id);
+        if (!existing) {
             return res.status(404).json({ message: "Business profile not found" });
         }
         if (existing.owner.toString() !== userId) {
             return res.status(403).json({
-                success: fail,
+                success: false,
                 message: "Forbidden : Business profile is not yours"
             });
         }
+
+        const update = {};
 
         if (body.businessName !== undefined) update.businessName = body.businessName;
         if (body.email !== undefined) update.email = body.email;
@@ -106,6 +122,7 @@ export async function updateBusinessProfile(req, res) {
         if (body.signatureOwnerName !== undefined) update.signatureOwnerName = body.signatureOwnerName;
         if (body.signatureOwnerTitle !== undefined) update.signatureOwnerTitle = body.signatureOwnerTitle;
         if (body.defaultTaxPercent !== undefined) update.defaultTaxPercent = Number(body.defaultTaxPercent);
+        if (body.notes !== undefined) update.notes = body.notes;
 
         const updatedProfile = await BusinessProfile.findByIdAndUpdate(id, update, {
             new: true,

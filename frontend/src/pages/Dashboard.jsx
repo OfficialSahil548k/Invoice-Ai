@@ -4,24 +4,13 @@ import { useAuth } from "@clerk/clerk-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import KpiCard from "../components/KpiCard.jsx";
 import StatusBadge from "../components/StatusBadge.jsx";
+import {
+  INVOICE_LIST_CACHE_EVENT,
+  readInvoiceListCache,
+  writeInvoiceListCache,
+} from "../utils/invoiceListCache.js";
 
 const API_BASE = "http://localhost:4000";
-
-// noramlize client object
-function normalizeClient(raw) {
-  if (!raw) return { name: "", email: "", address: "", phone: "" };
-  if (typeof raw === "string")
-    return { name: raw, email: "", address: "", phone: "" };
-  if (typeof raw === "object") {
-    return {
-      name: raw.name ?? raw.company ?? raw.client ?? "",
-      email: raw.email ?? raw.emailAddress ?? "",
-      address: raw.address ?? "",
-      phone: raw.phone ?? raw.contact ?? "",
-    };
-  }
-  return { name: "", email: "", address: "", phone: "" };
-}
 
 function currencyFmt(amount = 0, currency = "INR") {
   try {
@@ -40,55 +29,6 @@ function currencyFmt(amount = 0, currency = "INR") {
   }
 } // currency in indian
 
-//icons
-const TrendingUpIcon = ({ className = "w-5 h-5" }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <path d="M23 6l-9.5 9.5-5-5L1 18" />
-    <path d="M17 6h6v6" />
-  </svg>
-);
-const DollarIcon = ({ className = "w-5 h-5" }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <line x1="12" y1="1" x2="12" y2="23" />
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-  </svg>
-);
-const ClockIcon = ({ className = "w-5 h-5" }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <circle cx="12" cy="12" r="10" />
-    <polyline points="12 6 12 12 16 14" />
-  </svg>
-);
-const BrainIcon = ({ className = "w-5 h-5" }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <path d="M9.5 14.5A2.5 2.5 0 0 1 7 12c0-1.38.5-2 1-3 1.072-2.143 2.928-3.25 4.5-3 1.572.25 3 2 3 4 0 1.5-.5 2.5-1 3.5-1 2-2 3-3.5 3-1.5 0-2.5-1.5-2.5-3Z" />
-    <path d="M14.5 9.5A2.5 2.5 0 0 1 17 12c0 1.38-.5 2-1 3-1.072 2.143-2.928 3.25-4.5 3-1.572-.25-3-2-3-4 0-1.5.5-2.5 1-3.5 1-2 2-3 3.5-3 1.5 0 2.5 1.5 2.5 3Z" />
-  </svg>
-);
 const FileTextIcon = ({ className = "w-5 h-5" }) => (
   <svg
     className={className}
@@ -116,6 +56,21 @@ const EyeIcon = ({ className = "w-4 h-4" }) => (
     <circle cx="12" cy="12" r="3" />
   </svg>
 );
+const DeleteIcon = ({ className = "w-4 h-4" }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <path d="M3 6h18" />
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </svg>
+);
 
 /* small helpers */
 function capitalize(s) {
@@ -134,9 +89,40 @@ function formatDate(dateInput) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+const USD_TO_INR = 90;
+
+function convertToINR(amount = 0, currency = "INR") {
+  const n = Number(amount || 0);
+  const curr = String(currency || "INR")
+    .trim()
+    .toUpperCase();
+
+  if (curr === "INR") return n;
+  if (curr === "USD") return n * USD_TO_INR;
+  return n;
+}
+
+function normalizeDashboardInvoice(inv = {}) {
+  const clientObj = inv.client ?? {};
+  const amountVal = Number(inv.total ?? inv.amount ?? 0);
+  const currency = (inv.currency || "INR").toUpperCase();
+
+  return {
+    ...inv,
+    id: inv.invoiceNumber || inv._id || inv.id || String(inv._id || ""),
+    client: clientObj,
+    amount: amountVal,
+    currency,
+    status:
+      typeof inv.status === "string"
+        ? capitalize(inv.status)
+        : inv.status || "Draft",
+  };
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
 
   // to obtain the token
   const obtainToken = useCallback(async () => {
@@ -152,15 +138,29 @@ const Dashboard = () => {
     }
   }, [getToken]);
 
-  const [storedInvoices, setStoredInvoices] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const initialInvoiceCache = readInvoiceListCache(userId);
+  const [storedInvoices, setStoredInvoices] = useState(() =>
+    initialInvoiceCache
+      ? initialInvoiceCache.invoices.map(normalizeDashboardInvoice)
+      : []
+  );
+  const [loading, setLoading] = useState(() => !initialInvoiceCache);
   const [error, setError] = useState(null);
 
-  const [businessProfile, setBusinessProfile] = useState(null);
-
   //fetch invoices from backend
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
+  const fetchInvoices = useCallback(async (options = {}) => {
+    const force = options?.force === true;
+    if (!force) {
+      const cached = readInvoiceListCache(userId);
+      if (cached) {
+        setStoredInvoices(cached.invoices.map(normalizeDashboardInvoice));
+        setError(null);
+        setLoading(false);
+        if (cached.isFresh) return;
+      }
+    }
+
+    setLoading((current) => current || !storedInvoices.length);
     setError(null);
 
     try {
@@ -186,25 +186,9 @@ const Dashboard = () => {
         throw new Error(msg);
       }
 
-      const raw = json?.data || [];
-      const mapped = (Array.isArray(raw) ? raw : []).map((inv) => {
-        const clientObj = inv.client ?? {};
-        const amountVal = Number(inv.total ?? inv.amount ?? 0);
-        const currency = (inv.currency || "INR").toUpperCase();
-
-        return {
-          ...inv,
-          id: inv.invoiceNumber || inv._id || String(inv._id || ""),
-          client: clientObj,
-          amount: amountVal,
-          currency,
-          // keep status normalized
-          status:
-            typeof inv.status === "string"
-              ? capitalize(inv.status)
-              : inv.status || "Draft",
-        };
-      });
+      const raw = Array.isArray(json?.data) ? json.data : [];
+      writeInvoiceListCache(userId, raw);
+      const mapped = raw.map(normalizeDashboardInvoice);
       setStoredInvoices(mapped);
     } catch (err) {
       console.error("Failed to fetch invoices:", err);
@@ -213,66 +197,32 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [obtainToken]);
-
-  // fetch user Profile
-  const fetchBusinessProfile = useCallback(async () => {
-    try {
-      const token = await obtainToken();
-      if (!token) {
-        return;
-      }
-      const res = await fetch(`${API_BASE}/api/businessProfile/me`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: "application/json",
-        },
-      });
-      if (res.status === 401) {
-        return;
-      }
-      if (!res.ok) return;
-
-      const json = await res.json().catch(() => null);
-      const data = json?.data || null;
-      if (data) setBusinessProfile(data);
-    } catch (err) {
-      console.warn("Failed to fetch business profile:", err);
-    }
-  }, [obtainToken]);
+  }, [obtainToken, storedInvoices.length, userId]);
 
   useEffect(() => {
     async function initializeData() {
       await fetchInvoices();
-      await fetchBusinessProfile();
     }
 
     initializeData();
 
     function onStorage(e) {
-      if (e.key === "invoices_v1") fetchInvoices();
+      if (e.key?.startsWith("invoice_list_cache_v1:")) {
+        void fetchInvoices();
+      }
+    }
+
+    function onInvoiceCacheChanged() {
+      void fetchInvoices();
     }
 
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, [fetchInvoices, fetchBusinessProfile, isSignedIn]);
-
-  // 1 usd to INR
-  const HARD_RATES = {
-    USD_TO_INR: 90, // any value
-  };
-
-  function convertToINR(amount = 0, currency = "INR") {
-    const n = Number(amount || 0);
-    const curr = String(currency || "INR")
-      .trim()
-      .toUpperCase();
-
-    if (curr === "INR") return n;
-    if (curr === "USD") return n * HARD_RATES.USD_TO_INR;
-    return n;
-  }
+    window.addEventListener(INVOICE_LIST_CACHE_EVENT, onInvoiceCacheChanged);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(INVOICE_LIST_CACHE_EVENT, onInvoiceCacheChanged);
+    };
+  }, [fetchInvoices, isSignedIn]);
 
   const kpis = useMemo(() => {
     const totalInvoices = storedInvoices.length;
@@ -345,6 +295,45 @@ const Dashboard = () => {
     navigate(`/app/invoices/${invRow.id}`, { state: { invoice: payload } });
   }
 
+  async function handleDeleteInvoice(inv) {
+    if (!inv?.id) return;
+    if (!confirm(`Delete invoice ${inv.id}? This cannot be undone.`)) return;
+
+    try {
+      const token = await obtainToken();
+      if (!token) {
+        alert("Delete requires authentication. Please sign in.");
+        navigate("/login");
+        return;
+      }
+
+      const res = await fetch(
+        `${API_BASE}/api/invoice/${encodeURIComponent(inv.id)}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (res.status === 401) {
+        alert("Unauthorized. Please sign in.");
+        navigate("/login");
+        return;
+      }
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.message || `Delete failed (${res.status})`);
+      }
+
+      await fetchInvoices({ force: true });
+      alert("Invoice deleted.");
+    } catch (err) {
+      console.error("deleteInvoice error:", err);
+      alert(err?.message || "Failed to delete invoice.");
+    }
+  }
+
   return (
     <div className={dashboardStyles.pageContainer}>
       <div className={dashboardStyles.headerContainer}>
@@ -361,7 +350,7 @@ const Dashboard = () => {
           <div className="text-red-600 mb-3">Error: {error}</div>
           <div className=" flex gap-2 ">
             <button
-              onClick={fetchInvoices}
+              onClick={() => fetchInvoices({ force: true })}
               className="px-3 py-1 bg-blue-600 text-white rounded"
             >
               Retry
@@ -596,7 +585,7 @@ const Dashboard = () => {
                           </div>
                         </td>
                         <td className={dashboardStyles.tableCell}>
-                          <div className=" text-right ">
+                          <div className="flex justify-end gap-2">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -606,6 +595,17 @@ const Dashboard = () => {
                             >
                               <EyeIcon className=" w-4 h-4 group-hover/btn:scale-110 transition-transform" />
                               View
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteInvoice(inv);
+                              }}
+                              className={dashboardStyles.deleteActionButton}
+                              title="Delete invoice"
+                            >
+                              <DeleteIcon className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
+                              Delete
                             </button>
                           </div>
                         </td>
