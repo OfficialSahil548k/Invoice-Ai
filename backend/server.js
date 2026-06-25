@@ -6,7 +6,7 @@ import { connectDB } from './config/db.js';
 import path from 'path';
 import invoiceRouter from './routes/invoiceRouter.js';
 import businessProfileRouter from './routes/businessProfileRouter.js';
-import aiInvoiceRouter from './routes/aiinvoiceRouter.js';
+import aiInvoiceRouter from './routes/aiInvoiceRouter.js';
 
 const app = express();
 const port = 4000;
