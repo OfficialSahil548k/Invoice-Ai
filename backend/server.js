@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import 'dotenv/config';
+import dotenv from "dotenv";
 import { clerkMiddleware } from '@clerk/express';
 import { connectDB } from './config/db.js';
 import path from 'path';
@@ -11,6 +11,7 @@ import aiInvoiceRouter from './routes/aiInvoiceRouter.js';
 const app = express();
 const port = 4000;
 
+dotenv.config();
 
 // Middleware
 app.use(cors({
