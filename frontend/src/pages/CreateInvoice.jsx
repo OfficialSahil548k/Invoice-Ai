@@ -10,7 +10,7 @@ import {
 import { clearInvoiceListCache } from "../utils/invoiceListCache.js";
 
 /* ---------- API BASE ---------- */
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL;
 
 /* ---------- storage helpers (unchanged) ---------- */
 /* ----------------- frontend-only: normalize image URLs ----------------- */
